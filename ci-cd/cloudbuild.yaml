@@ -1,0 +1,56 @@
+steps:
+  # Step 1: Build payment-service JAR
+  - name: 'gcr.io/cloud-builders/mvn'
+    dir: 'microservices/payment-service'
+    args: ['clean', 'package', '-DskipTests']
+
+  # Step 2: Build and push payment-service Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - build
+      - '-t'
+      - 'us-docker.pkg.dev/spanner-gke-443910/spanner-game-images/payment-service:latest'
+      - './microservices/payment-service'
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - push
+      - 'us-docker.pkg.dev/spanner-gke-443910/spanner-game-images/payment-service:latest'
+
+  # Step 3: Build transaction-service JAR
+  - name: 'gcr.io/cloud-builders/mvn'
+    dir: 'microservices/transaction-service'
+    args: ['clean', 'package', '-DskipTests']
+
+  # Step 4: Build and push transaction-service Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - build
+      - '-t'
+      - 'us-docker.pkg.dev/spanner-gke-443910/spanner-game-images/transaction-service:latest'
+      - './microservices/transaction-service'
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - push
+      - 'us-docker.pkg.dev/spanner-gke-443910/spanner-game-images/transaction-service:latest'
+
+  # Step 5: Build reconciliation-service JAR
+  - name: 'gcr.io/cloud-builders/mvn'
+    dir: 'microservices/reconciliation-service'
+    args: ['clean', 'package', '-DskipTests']
+
+  # Step 6: Build and push reconciliation-service Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - build
+      - '-t'
+      - 'us-docker.pkg.dev/spanner-gke-443910/spanner-game-images/reconciliation-service:latest'
+      - './microservices/reconciliation-service'
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - push
+      - 'us-docker.pkg.dev/spanner-gke-443910/spanner-game-images/reconciliation-service:latest'
+
+images:
+  - 'us-docker.pkg.dev/spanner-gke-443910/spanner-game-images/payment-service:latest'
+  - 'us-docker.pkg.dev/spanner-gke-443910/spanner-game-images/transaction-service:latest'
+  - 'us-docker.pkg.dev/spanner-gke-443910/spanner-game-images/reconciliation-service:latest'

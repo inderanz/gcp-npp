@@ -1,0 +1,8 @@
+apiVersion: deploy.cloud.google.com/v1
+kind: DeliveryPipeline
+metadata:
+  name: sample-game-pipeline
+description: "Pipeline to deploy to a single GKE environment"
+serialPipeline:
+  stages:
+  - targetId: dev

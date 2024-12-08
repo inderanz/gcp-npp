@@ -1,0 +1,8 @@
+apiVersion: skaffold/v2beta29
+kind: Config
+metadata:
+  name: sample-game
+deploy:
+  kustomize:
+    paths:
+      - .
