@@ -1,0 +1,21 @@
+# Terraform state files and backups
+*.tfstate
+*.tfstate.*
+*.backup
+
+# .terraform directories in infra-code and other locations
+infra-code/infrastructure/.terraform/
+.terraform/
+
+# Terraform override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# IDE or editor files
+.idea/
+.vscode/
+
+# Other files you may not want to track
+*.log
