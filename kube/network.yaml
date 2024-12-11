@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-service
+  namespace: app-ns
+spec:
+  selector:
+    app: payment-service
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: LoadBalancer  # Default service type
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reconciliation-service
+  namespace: app-ns
+spec:
+  selector:
+    app: reconciliation-service
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: LoadBalancer  # Default service type
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: transaction-service
+  namespace: app-ns
+spec:
+  selector:
+    app: transaction-service
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: LoadBalancer  # Default service type
+

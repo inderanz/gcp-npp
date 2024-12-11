@@ -1,0 +1,7 @@
+apiVersion: deploy.cloud.google.com/v1
+kind: Target
+metadata:
+  name: dev
+description: "Dev environment"
+gke:
+  cluster: "projects/spanner-gke-443910/locations/us-central1/clusters/sample-game-gke"
