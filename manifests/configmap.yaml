@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: payment-service-1-config
+data:
+  SPANNER_PROJECT_ID: spanner-gke-443910
+  SPANNER_INSTANCE_ID: sample-instance
+  SPANNER_DATABASE_NAME: sample-database
