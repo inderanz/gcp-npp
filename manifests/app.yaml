@@ -83,3 +83,88 @@ spec:
           limits:
             cpu: 200m
             memory: 256Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service-1
+  labels:
+    app: payment-service-1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: payment-service-1
+  template:
+    metadata:
+      labels:
+        app: payment-service-1
+    spec:
+      containers:
+        - name: payment-service-1
+          image: us-docker.pkg.dev/spanner-gke-443910/spanner-game-images/payment-service-1:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPANNER_PROJECT_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: payment-service-1-config
+                  key: SPANNER_PROJECT_ID
+            - name: SPANNER_INSTANCE_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: payment-service-1-config
+                  key: SPANNER_INSTANCE_ID
+            - name: SPANNER_DATABASE_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: payment-service-1-config
+                  key: SPANNER_DATABASE_NAME
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 30 # Wait time before readiness check starts
+            periodSeconds: 10       # How often to perform the check
+            failureThreshold: 3     # Number of failures before marking as not ready
+            successThreshold: 1     # Number of successes before marking as ready
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 30 # Wait time before liveness check starts
+            periodSeconds: 10       # How often to perform the check
+            failureThreshold: 5     # Number of failures before restarting the container
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "250m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-service-1
+  labels:
+    app: payment-service-1
+spec:
+  type: ClusterIP
+  selector:
+    app: payment-service-1
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: payment-service-1-config
+data:
+  SPANNER_PROJECT_ID: spanner-gke-443910
+  SPANNER_INSTANCE_ID: sample-instance
+  SPANNER_DATABASE_NAME: sample-database

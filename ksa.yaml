@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    iam.gke.io/gcp-service-account: my-app-gsa@spanner-gke-443910.iam.gserviceaccount.com
+  creationTimestamp: "2024-12-08T11:43:54Z"
+  name: my-app-ksa
+  namespace: app-ns
+  resourceVersion: "148344"
+  uid: 18eb53d3-0f7e-4bb5-bc90-ffb73af7e946
