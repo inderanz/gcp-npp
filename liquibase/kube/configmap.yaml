@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: liquibase-config
+  namespace: app-ns
+data:
+  SPANNER_PROJECT_ID: "spanner-gke-443910"       # Your GCP Project ID
+  SPANNER_INSTANCE_ID: "sample-instance"         # Your Spanner instance ID
+  SPANNER_DATABASE_NAME: "sample-database"       # Your Spanner database name
+  LIQUIBASE_CHANGELOG_FILE: "/liquibase/changelog/db-changelog.xml"
