@@ -2,9 +2,20 @@ package com.example.reconciliationservice;
 
 public class ReconciliationRequest {
     private String puid;
-    private String status;
+    private double amount;
+    private String sourceService;  // This will hold the name of the calling service
 
-    // Getters and Setters
+    // Default constructor
+    public ReconciliationRequest() {}
+
+    // Parameterized constructor
+    public ReconciliationRequest(String puid, double amount, String sourceService) {
+        this.puid = puid;
+        this.amount = amount;
+        this.sourceService = sourceService;
+    }
+
+    // Getters and setters
     public String getPuid() {
         return puid;
     }
@@ -13,11 +24,28 @@ public class ReconciliationRequest {
         this.puid = puid;
     }
 
-    public String getStatus() {
-        return status;
+    public double getAmount() {
+        return amount;
     }
 
-    public void setStatus(String status) {
-        this.status = status;
+    public void setAmount(double amount) {
+        this.amount = amount;
+    }
+
+    public String getSourceService() {
+        return sourceService;  // This returns the service name that is calling the reconciliation service
+    }
+
+    public void setSourceService(String sourceService) {
+        this.sourceService = sourceService;
+    }
+
+    @Override
+    public String toString() {
+        return "ReconciliationRequest{" +
+                "puid='" + puid + '\'' +
+                ", amount=" + amount +
+                ", sourceService='" + sourceService + '\'' +
+                '}';
     }
 }
