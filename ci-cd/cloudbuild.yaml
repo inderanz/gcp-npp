@@ -50,25 +50,25 @@ steps:
       - push
       - 'us-docker.pkg.dev/spanner-gke-443910/spanner-game-images/reconciliation-service:latest'
 
-  # Step 7: Build payment-service-1 JAR
-  - name: 'gcr.io/cloud-builders/mvn'
-    dir: 'microservices/payment-service-1'
-    args: ['clean', 'package', '-DskipTests']
+  # # Step 7: Build payment-service-1 JAR
+  # - name: 'gcr.io/cloud-builders/mvn'
+  #   dir: 'microservices/payment-service-1'
+  #   args: ['clean', 'package', '-DskipTests']
 
-  # Step 8: Build and push payment-service-1 Docker image
-  - name: 'gcr.io/cloud-builders/docker'
-    args:
-      - build
-      - '-t'
-      - 'us-docker.pkg.dev/spanner-gke-443910/spanner-game-images/payment-service-1:latest'
-      - './microservices/payment-service-1'
-  - name: 'gcr.io/cloud-builders/docker'
-    args:
-      - push
-      - 'us-docker.pkg.dev/spanner-gke-443910/spanner-game-images/payment-service-1:latest'
+  # # Step 8: Build and push payment-service-1 Docker image
+  # - name: 'gcr.io/cloud-builders/docker'
+  #   args:
+  #     - build
+  #     - '-t'
+  #     - 'us-docker.pkg.dev/spanner-gke-443910/spanner-game-images/payment-service-1:latest'
+  #     - './microservices/payment-service-1'
+  # - name: 'gcr.io/cloud-builders/docker'
+  #   args:
+  #     - push
+  #     - 'us-docker.pkg.dev/spanner-gke-443910/spanner-game-images/payment-service-1:latest'
 
 images:
   - 'us-docker.pkg.dev/spanner-gke-443910/spanner-game-images/payment-service:latest'
   - 'us-docker.pkg.dev/spanner-gke-443910/spanner-game-images/transaction-service:latest'
   - 'us-docker.pkg.dev/spanner-gke-443910/spanner-game-images/reconciliation-service:latest'
-  - 'us-docker.pkg.dev/spanner-gke-443910/spanner-game-images/payment-service-1:latest'
+  # - 'us-docker.pkg.dev/spanner-gke-443910/spanner-game-images/payment-service-1:latest'

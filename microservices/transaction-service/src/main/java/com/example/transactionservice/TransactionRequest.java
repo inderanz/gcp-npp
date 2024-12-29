@@ -1,7 +1,7 @@
 package com.example.transactionservice;
 
 public class TransactionRequest {
-    private String transactionId;
+    private String puid;  // PUID used as the unique identifier
     private String userId;
     private double amount;
 
@@ -9,32 +9,31 @@ public class TransactionRequest {
     public TransactionRequest() {}
 
     // Parameterized constructor
-    public TransactionRequest(String transactionId, String userId, double amount) {
-        this.transactionId = transactionId;
+    public TransactionRequest(String puid, String userId, double amount) {
+        this.puid = puid;  // Set PUID instead of TransactionID
         this.userId = userId;
         this.amount = amount;
     }
 
-    // Getters
-    public String getTransactionId() {
-        return transactionId;
+    // Getters and setters
+    public String getPuid() {
+        return puid;
+    }
+
+    public void setPuid(String puid) {
+        this.puid = puid;
     }
 
     public String getUserId() {
         return userId;
     }
 
-    public double getAmount() {
-        return amount;
-    }
-
-    // Setters
-    public void setTransactionId(String transactionId) {
-        this.transactionId = transactionId;
-    }
-
     public void setUserId(String userId) {
         this.userId = userId;
+    }
+
+    public double getAmount() {
+        return amount;
     }
 
     public void setAmount(double amount) {
@@ -44,7 +43,7 @@ public class TransactionRequest {
     @Override
     public String toString() {
         return "TransactionRequest{" +
-                "transactionId='" + transactionId + '\'' +
+                "puid='" + puid + '\'' +
                 ", userId='" + userId + '\'' +
                 ", amount=" + amount +
                 '}';
