@@ -7,9 +7,10 @@ import com.google.cloud.spanner.SpannerOptions;
 import com.google.cloud.spanner.DatabaseId;
 import com.google.cloud.Timestamp;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 
 import javax.annotation.PostConstruct;
 import java.util.Collections;
@@ -19,8 +20,9 @@ import java.util.logging.Logger;
 public class ReconciliationService {
 
     private static final Logger logger = Logger.getLogger(ReconciliationService.class.getName());
-    private final RestTemplate restTemplate = new RestTemplate();
-    private static final int MAX_RETRIES = 3; // Maximum retry attempts
+    private RestTemplate restTemplate;
+    private static final int MAX_RETRIES = 3;
+    private static final int RETRY_DELAY_MS = 1000;
 
     private DatabaseClient spannerClient;
     private DatabaseClient auditSpannerClient;
@@ -37,9 +39,6 @@ public class ReconciliationService {
     @Value("${audit.db.name}")
     private String auditDbName;
 
-    @Value("${reconciliation.audit.table}")
-    private String reconciliationAuditTable;
-
     @Value("${payment.service.url}")
     private String paymentServiceUrl;
 
@@ -47,20 +46,22 @@ public class ReconciliationService {
     private String reconciliationServiceUrl;
 
     @PostConstruct
-    public void initializeSpannerClient() {
-        logger.info("Initializing Spanner client...");
+    public void initialize() {
+        initializeSpannerClient();
+        configureRestTemplate();
+    }
 
+    private void initializeSpannerClient() {
+        logger.info("Initializing Spanner client...");
         try {
             SpannerOptions spannerOptions = SpannerOptions.newBuilder()
                     .setProjectId(spannerProjectId)
                     .build();
             Spanner spanner = spannerOptions.getService();
 
-            // Initialize Spanner client for reconciliation database
             DatabaseId dbId = DatabaseId.of(spannerProjectId, spannerInstanceId, spannerDatabaseName);
             this.spannerClient = spanner.getDatabaseClient(dbId);
 
-            // Initialize Spanner client for audit database
             DatabaseId auditDbId = DatabaseId.of(spannerProjectId, spannerInstanceId, auditDbName);
             this.auditSpannerClient = spanner.getDatabaseClient(auditDbId);
 
@@ -71,69 +72,35 @@ public class ReconciliationService {
         }
     }
 
-    public void processReconciliation(ReconciliationRequest reconciliationRequest) {
-        String status = "PENDING"; // Default status when reconciling the payment
+    private void configureRestTemplate() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(15000); // 15 seconds
+        factory.setReadTimeout(15000);    // 15 seconds
+        this.restTemplate = new RestTemplate(factory);
+        logger.info("RestTemplate configured with timeouts.");
+    }
 
-        int retryCount = 0;
+    public void processReconciliation(ReconciliationRequest reconciliationRequest) {
+        logger.info("Processing reconciliation for PUID: " + reconciliationRequest.getPuid());
+        String status = "PENDING";
 
         try {
-            // Step 1: Save the reconciliation with PENDING status in the reconciliation database
+            logger.info("Step 1: Saving reconciliation with status: PENDING...");
             saveReconciliation(reconciliationRequest, status);
 
-            // Step 2: Call Payment Service with retry logic
-            boolean paymentSuccess = false;
-            while (retryCount < MAX_RETRIES) {
-                paymentSuccess = callPaymentService(reconciliationRequest);
-                if (paymentSuccess) break;
-                retryCount++;
-            }
+            logger.info("Step 2: Calling Payment Service...");
+            boolean paymentSuccess = retryWithDelay(() -> callPaymentService(reconciliationRequest), MAX_RETRIES);
 
-            // Step 3: Ensure that the ReconciliationService does not call itself
-            if (!isReconciliationService(reconciliationRequest)) {
-                // Step 4: Call Reconciliation Service with retry logic
-                boolean reconciliationSuccess = false;
-                retryCount = 0;
-                while (retryCount < MAX_RETRIES) {
-                    reconciliationSuccess = callReconciliationService(reconciliationRequest);
-                    if (reconciliationSuccess) break;
-                    retryCount++;
-                }
-                status = (paymentSuccess && reconciliationSuccess) ? "COMPLETED" : "FAILED";
-            } else {
-                // If it's a recursive call, mark as failed
-                logger.severe("Reconciliation service called itself, avoiding recursive call.");
-                status = "FAILED";
-            }
+            logger.info("Step 3: Calling Reconciliation Service...");
+            boolean reconciliationSuccess = retryWithDelay(() -> callReconciliationService(reconciliationRequest), MAX_RETRIES);
 
-            // Step 5: Update reconciliation status
+            status = (paymentSuccess && reconciliationSuccess) ? "COMPLETED" : "FAILED";
+            logger.info("Step 4: Updating reconciliation status to: " + status);
             updateReconciliationStatus(reconciliationRequest.getPuid(), status);
 
         } catch (Exception e) {
             logger.severe("Reconciliation processing failed: " + e.getMessage());
             updateReconciliationStatus(reconciliationRequest.getPuid(), "FAILED");
-        }
-    }
-
-    private boolean isReconciliationService(ReconciliationRequest reconciliationRequest) {
-        // Prevent recursive calls to Reconciliation Service
-        // Check if this request is originating from another ReconciliationService
-        return reconciliationRequest.getSourceService() != null &&
-                reconciliationRequest.getSourceService().equals("ReconciliationService");
-    }
-
-    private void saveReconciliation(ReconciliationRequest reconciliationRequest, String status) {
-        try {
-            Mutation mutation = Mutation.newInsertOrUpdateBuilder("Reconciliation")
-                    .set("PUID").to(reconciliationRequest.getPuid())
-                    .set("Amount").to(reconciliationRequest.getAmount())
-                    .set("Status").to(status)
-                    .set("Timestamp").to(Timestamp.now())
-                    .build();
-            spannerClient.write(Collections.singletonList(mutation));
-            logger.info("Reconciliation saved with status: " + status);
-        } catch (Exception e) {
-            logger.severe("Error saving reconciliation: " + e.getMessage());
-            throw e;
         }
     }
 
@@ -145,12 +112,11 @@ public class ReconciliationService {
                     reconciliationRequest,
                     String.class
             );
-
             if (response.getStatusCode().is2xxSuccessful()) {
                 logger.info("Payment Service Response: " + response.getBody());
                 return true;
             } else {
-                logger.severe("Payment Service failed with status: " + response.getStatusCode());
+                logger.warning("Payment Service failed with status: " + response.getStatusCode());
                 return false;
             }
         } catch (Exception e) {
@@ -160,8 +126,14 @@ public class ReconciliationService {
     }
 
     private boolean callReconciliationService(ReconciliationRequest reconciliationRequest) {
+        if (isReconciliationService(reconciliationRequest)) {
+            logger.warning("Recursive call detected. Aborting reconciliation request for PUID: " + reconciliationRequest.getPuid());
+            return false;
+        }
+
         try {
-            logger.info("Calling Reconciliation Service...");
+            logger.info("Calling Reconciliation Service at: " + reconciliationServiceUrl);
+            reconciliationRequest.setSourceService("ReconciliationService");
             ResponseEntity<String> response = restTemplate.postForEntity(
                     reconciliationServiceUrl + "/reconciliation",
                     reconciliationRequest,
@@ -172,7 +144,7 @@ public class ReconciliationService {
                 logger.info("Reconciliation Service Response: " + response.getBody());
                 return true;
             } else {
-                logger.severe("Reconciliation Service failed with status: " + response.getStatusCode());
+                logger.warning("Reconciliation Service failed with status: " + response.getStatusCode());
                 return false;
             }
         } catch (Exception e) {
@@ -181,34 +153,72 @@ public class ReconciliationService {
         }
     }
 
+    private boolean isReconciliationService(ReconciliationRequest reconciliationRequest) {
+        return "ReconciliationService".equalsIgnoreCase(reconciliationRequest.getSourceService());
+    }
+
+    private void saveReconciliation(ReconciliationRequest reconciliationRequest, String status) {
+        executeSpannerWrite(() -> {
+            Mutation mutation = Mutation.newInsertOrUpdateBuilder("Reconciliation")
+                    .set("PUID").to(reconciliationRequest.getPuid())
+                    .set("Amount").to(reconciliationRequest.getAmount())
+                    .set("Status").to(status)
+                    .set("Timestamp").to(Timestamp.now())
+                    .build();
+            spannerClient.write(Collections.singletonList(mutation));
+        });
+    }
+
     private void updateReconciliationStatus(String puid, String status) {
-        try {
+        executeSpannerWrite(() -> {
             Mutation mutation = Mutation.newUpdateBuilder("Reconciliation")
                     .set("PUID").to(puid)
                     .set("Status").to(status)
                     .build();
             spannerClient.write(Collections.singletonList(mutation));
-            logger.info("Reconciliation status updated to: " + status);
-
-            // Log audit trail in the audit database
-            logAuditTrail(puid, "UPDATE_STATUS", status);
-        } catch (Exception e) {
-            logger.severe("Error updating reconciliation status: " + e.getMessage());
-        }
+        });
     }
 
-    private void logAuditTrail(String puid, String action, String status) {
-        try {
-            Mutation mutation = Mutation.newInsertBuilder(reconciliationAuditTable)
-                    .set("PUID").to(puid)
-                    .set("Action").to(action)
-                    .set("Status").to(status)
-                    .set("Timestamp").to(Timestamp.now())
-                    .build();
-            auditSpannerClient.write(Collections.singletonList(mutation));
-            logger.info("Audit trail logged for PUID: " + puid + ", Action: " + action + ", Status: " + status);
-        } catch (Exception e) {
-            logger.severe("Error logging audit trail: " + e.getMessage());
+    private void executeSpannerWrite(Runnable writeOperation) {
+        int attempt = 0;
+        while (attempt < MAX_RETRIES) {
+            try {
+                writeOperation.run();
+                return;
+            } catch (Exception e) {
+                logger.warning("Transient error writing to Spanner, attempt " + (attempt + 1) + ": " + e.getMessage());
+                attempt++;
+                try {
+                    Thread.sleep(RETRY_DELAY_MS * attempt);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Spanner write interrupted", ie);
+                }
+            }
         }
+        throw new RuntimeException("Failed to write to Spanner after " + MAX_RETRIES + " attempts");
+    }
+
+    private boolean retryWithDelay(RunnableWithBoolean operation, int maxRetries) {
+        int retryCount = 0;
+        while (retryCount < maxRetries) {
+            if (operation.run()) {
+                return true;
+            }
+            retryCount++;
+            logger.warning("Retry attempt " + retryCount + " for operation.");
+            try {
+                Thread.sleep(RETRY_DELAY_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+        }
+        return false;
+    }
+
+    @FunctionalInterface
+    private interface RunnableWithBoolean {
+        boolean run();
     }
 }

@@ -12,9 +12,9 @@ create_payment_request() {
   # Sample payment request payload with PUID as unique identifier
   payload=$(cat <<EOF
 {
-  "puid": "0231",
-  "userId": "Inder-231",
-  "amount": 10000.00
+  "puid": "02675",
+  "userId": "Inder-02675",
+  "amount": 101.00
 }
 EOF
 )
