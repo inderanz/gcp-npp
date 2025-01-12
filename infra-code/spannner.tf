@@ -2,7 +2,7 @@
 
 # Provider Configuration
 provider "google" {
-  project = "spanner-gke-443910"  # Replace with your actual GCP project ID
+  project = "spanner-gke-443910"  
   region  = "us-central1"
 }
 
